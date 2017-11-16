@@ -1,6 +1,6 @@
 function Output_Struct = bayspar_tex_analog(dats, prior_mean, prior_std, search_tol, runname, varargin)
 %
-% function Output_Struct = bayspar_tex_analog(dats, prior_mean, prior_std, search_tol, varargin)
+% function Output_Struct = bayspar_tex_analog(dats, prior_mean, prior_std, search_tol, runname, varargin)
 %
 % INPUTS:
 % dats    - past TEX value or time series. Note that analog selection is
@@ -11,7 +11,7 @@ function Output_Struct = bayspar_tex_analog(dats, prior_mean, prior_std, search_
 % search_tol - tolerance for finding analog locations. comparison is
 % between the mean of dats and the mean tex value within each large
 % gridcell. 
-% runname   - gives info about which output to load.
+% runname   - enter 'SST' for sea-surface temperature or 'subT' for subsurface T
 %
 
 
