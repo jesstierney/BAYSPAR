@@ -1,6 +1,6 @@
 function Output_Struct = bayspar_tex(dats, lon, lat, prior_std, runname, varargin)
 %
-% function Output_Struct = bayspar_tex(dats, lon, lat, prior_std, min_num, max_dist, runname, varargin)
+% function Output_Struct = bayspar_tex(dats, lon, lat, prior_std, runname, varargin)
 %
 % INPUTS:
 % dats      - N by 1 vector of TEX86 observations from a single location
