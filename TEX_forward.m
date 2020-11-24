@@ -61,11 +61,6 @@ if strcmp(type,"standard")
     % Extract the alpha, beta series for that location:
     alpha_samples=alpha_samples_comp(inder_g, :);
     beta_samples=beta_samples_comp(inder_g, :);
-    %downsample to 4000
-    ds = 5;
-    alpha_samples=alpha_samples(1:ds:end);
-    beta_samples=beta_samples(1:ds:end);
-    tau2_samples=tau2_samples(1:ds:end);
 else %analog option
     %cycle through the alpha/beta grid cells, find those that feature mean
     %modern T obs within the tolerance: 
@@ -94,17 +89,15 @@ else %analog option
     %reshape
     alpha_samples=reshape(alpha_samples,1,size(alpha_samples,1)*size(alpha_samples,2));
     beta_samples=reshape(beta_samples,1,size(beta_samples,1)*size(beta_samples,2));
-    %downsample to 4000
-    iters=length(alpha_samples);
-    ds=round(iters/4000);
-    alpha_samples=alpha_samples(1:ds:end);
-    beta_samples=beta_samples(1:ds:end);
-    tau2_samples=tau2_samples(1:ds:end);
 end
 
 
 %% Predict TEX86 values
 tex86 = normrnd(t * beta_samples + alpha_samples,repmat(sqrt(tau2_samples),length(t),1));
+%downsample to 2000 iterations for ease
+iters = length(alpha_samples);
+randind = randsample(iters,2000);
+tex86 = tex86(:,randind);
 %any tex values outside 0 to 1 are forced to be in that range.
 tex86(tex86>1)=1;
 tex86(tex86<0)=0;
