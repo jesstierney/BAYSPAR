@@ -96,7 +96,7 @@ end
 tex86 = normrnd(t * beta_samples + alpha_samples,repmat(sqrt(tau2_samples),length(t),1));
 %downsample to 2000 iterations for ease
 iters = length(alpha_samples);
-randind = randsample(iters,2000);
+randind = randsample(iters,1000);
 tex86 = tex86(:,randind);
 %any tex values outside 0 to 1 are forced to be in that range.
 tex86(tex86>1)=1;

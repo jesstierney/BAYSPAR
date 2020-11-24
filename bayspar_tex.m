@@ -12,7 +12,7 @@ function Output_Struct = bayspar_tex(dats, lon, lat, prior_std, runname, varargi
 % varargin  - used to set the number of posterior draws of parameters to
 % mix across, and whether to save the 5th/50th/95th percentiles of the
 % predictions, or the whole ensemble as well.
-% - if left empty, then 5000 draws are used and the ensemble of predictions
+% - if left empty, then 1000 draws are used and the ensemble of predictions
 % is not saved. 
 % - if only one argument, it is the number of draws (cannot exceed 15000),
 % and the ensemble is not saved. Note that samples are thinned to use the
@@ -54,7 +54,7 @@ elseif ng==6
     Nsamps=varargin{1};
     ens_sel=0;
 elseif ng==5;
-    Nsamps=5000;
+    Nsamps=1000;
     ens_sel=0;
 end
 
