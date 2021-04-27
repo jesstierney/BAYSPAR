@@ -30,6 +30,8 @@ would forward-model TEX<sub>86</sub> in analog mode with a search tolerance of 1
 
 OUTPUT: A N x 1000 ensemble of possible temperature values.
 
+NOTE: tex_forward can now handle multiple lat/lon locations!
+
 ## Predict T from TEX<sub>86</sub> - Standard mode (`bayspar_tex.m`)
 
 The assumption in this case is that oceanographic conditions are sufficiently similar to today so that it is reasonable to use the spatial distribution of regression parameters as fitted from the core tops.
@@ -90,8 +92,6 @@ varargin  		- used to set the number of posterior draws of parameters to mix acr
 	- if two arguments, the first gives the number of draws, while the second is an indicator:\
 		0: (default) save only the 5th/50th/95th percentiles of the predictions. \
 		1: save the whole ensemble as well.
- 
-NOTE: if there are a large number of spatial analogs, then the code can be slow as the prediction is performed the inputted number of times (default 1000) times for each spatial analog. Suggest an initial run with Nsamps set low (even to 10), to get a sense of the  number of analogs, and then a subsequent run with a reasonable value of Nsamps so as to end up with 10k or so total predictions.
 
 OUTPUT:
 
@@ -103,7 +103,6 @@ Preds      		- Nd by 3 array, where Nd=length(dats), giving the 5/50/95 percenti
 .PriorStd  		- The prior std as input. \
 .PredsEns  	- Nd by No. analog locatioins by Nsamps array of predictions. Only included if ens_sel==1. Note that the second dimension corresponds to the location in .AnLocs.
 
-NOTES:
+NOTE:
 
-1. The file Target_All_Predict.m is called by both of the prediction scripts, and need not be touched.
-2. All necessary model outputs, as well as some sample TEX<sub>86</sub> series used by the demo scripts, are in the ModelOutput folder, and need not be touched.
+All necessary model outputs, as well as some sample TEX<sub>86</sub> series used by the demo scripts, are in the ModelOutput folder, and need not be touched.

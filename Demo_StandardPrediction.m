@@ -1,5 +1,5 @@
 %% Example using the standard prediction
-clear all; close all; clc
+clear; close all; clc
 
 %load the TEX data
 load ModelOutput/tex_testdata.mat
@@ -12,35 +12,21 @@ load ModelOutput/tex_testdata.mat
 %select an example timeseries here:
 
 %stuct_tp=castaneda2010;
-%stuct_tp=lopes_santos2010;
-stuct_tp=shevenell2011;
+stuct_tp=lopes_santos2010;
+%stuct_tp=shevenell2011;
 
 %% Set the inputs for the prediction code
-% 
-% Idea: import your own data, get it into the form below, and then use the
-% code. 
-%
-
 dats=stuct_tp.tex86;
 lon=stuct_tp.lon;
 lat=stuct_tp.lat;
 prior_std=6;
-min_num=1;
-max_dist=500;
-%optional inputs
-Nsamps=200;
-ens_sel=1;
 
 %select which model to use:
-
 %SST
-runname=char('SST');
-
-%subT
-%runname=char('subT');
+runname='subT';
 
 %predict:
-Output_Struct = bayspar_tex(dats, lon, lat, prior_std, runname, Nsamps, ens_sel);
+Output_Struct = bayspar_tex(dats, lon, lat, prior_std, runname);
 
 %and need a timeline:
 timeline=stuct_tp.age;
@@ -57,12 +43,3 @@ axis tight
 ylabel('Temperature in C')
 xlabel('Age')
 legend('90% Uncertainty', 'Mean', 'Prior Mean')
-
-%% and if available, plot 10 of the ensemble members:
-if ens_sel==1
-    inders=floor(linspace(1, Nsamps, 10));
-    for kk=1:1:length(inders)
-        plot(timeline, Output_Struct.PredsEns(:,inders(kk)), 'b-'), hold on
-    end    
-end
-

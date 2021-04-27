@@ -51,31 +51,24 @@ if ng==7
 elseif ng==6
     Nsamps=varargin{1};
     ens_sel=0;
-elseif ng==5;
+elseif ng==5
     Nsamps=1000;
     ens_sel=0;
 end
 
 
 %% Load the datas
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/alpha_samples'])
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/beta_samples'])
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/tau2_samples'])
-load(['ModelOutput/Data_Input_SpatAg_', runname])
-
-alpha_samples=[alpha_samples.field];
-beta_samples=[beta_samples.field];
+load(['ModelOutput/', 'Output_SpatAg_', runname, '/params_analog'],...
+        'alpha_samples','beta_samples','tau2_samples');
+load(['ModelOutput/Data_Input_SpatAg_', runname],'Data_Input');
 %% make sure input is column:
 dats=dats(:);
-%and that Nsamps is less than 15000:
-Nsamps=min([Nsamps, length(tau2_samples)]);
 %thin the samples to the right number (so as to use the full span of the
 %ensemble even if few samples are used.)
 ind_s=round(linspace(1, length(tau2_samples), Nsamps));
 alpha_samples=alpha_samples(:, ind_s);
 beta_samples=beta_samples(:, ind_s);
 tau2_samples=tau2_samples(ind_s);
-
 
 %get the number of obs:
 Nd=length(dats);
@@ -90,76 +83,47 @@ if ens_sel==1
     Output_Struct.PredsEns=[]; % don't yet know size. 
 end
 
-%% get the prior in the right form:
-Prior_Pars.mu=ones(Nd,1)*prior_mean;
-Prior_Pars.inv_cov=eye(Nd)*prior_std^(-2);
-
 %% Find the analogs
-
 %cycle through the alpha/beta grid cells, find those that feature mean
-%modern TEX obs within the tolerance: 
+%modern TEX obs within the tolerance.
 
 %number of big grids:
-N_bg=length(Data_Input.Locs(:,1));
-inder_g=[];
+N_bg = length(Data_Input.Locs(:,1));
 
-%%%% to here. 
-for kk=1:1:N_bg
-    %find the Tex obs corresponding to this index location, using the
-    %stacked obs:
-    inds_temp=find(Data_Input.Inds_Stack==kk);
-    vals=Data_Input.Obs_Stack(inds_temp);
-
-    %if the mean of vals in the big gridis within tolerance, add it to inder_g
-    if mean(vals)>=(mean(dats)-search_tol) && mean(vals)<=(mean(dats)+search_tol)
-        inder_g=[inder_g; kk];
-    end    
-    
+%NEW: calculate mean SSTs across spatial grid cells
+spatialMean = NaN(N_bg,1);
+for i=1:N_bg
+    spatialMean(i)=mean(Data_Input.Obs_Stack(Data_Input.Inds_Stack==i));
 end
-N_Locs_g=length(inder_g);
+%identify mean values within the tolerance
+inder_g = spatialMean >= (mean(dats)-search_tol) & spatialMean <= (mean(dats)+search_tol);
+alpha_samples=alpha_samples(inder_g, :);
+beta_samples=beta_samples(inder_g, :);
+%tile tau2 to match
+tau2_samples=repmat(tau2_samples,1,size(alpha_samples,1));
+%reshape
+alpha_samples=reshape(alpha_samples,1,size(alpha_samples,1)*size(alpha_samples,2));
+beta_samples=reshape(beta_samples,1,size(beta_samples,1)*size(beta_samples,2));
+%save the analog locations
 Output_Struct.AnLocs=Data_Input.Locs(inder_g,:);
 
-%cycle through to get the predictions
-preds_T=NaN(size(dats,1),N_Locs_g, Nsamps);
-
-tic;
-ct=0;
-for jj=1:1:N_Locs_g
-    for kk=1:1:Nsamps
-        preds_T(:,jj,kk) = Target_All_Predict(alpha_samples(inder_g(jj),kk), beta_samples(inder_g(jj),kk), tau2_samples(kk), dats, Prior_Pars);
+%% solve
+% Prior mean and inverse covariance matrix
+    pmu = repmat(ones(Nd, 1) * prior_mean,1,size(alpha_samples,2));
+    pinv_cov = repmat(prior_std,Nd,size(alpha_samples,2)).^-2;
+    sigmaS = sqrt(tau2_samples);
     
-        %deal with timing. 
-        ct=ct+1;
-        if floor(kk/1000)-kk/1000==0
-            tt=toc;
-            display(['Finished iteration ', num2str(kk), ' of ', num2str(Nsamps), ' for spatial analog ', num2str(jj), ' of ', num2str(N_Locs_g)])
-            trem=round((Nsamps*N_Locs_g-ct)*tt/1000);
-            display(['Approximately ', num2str(trem), ' seconds remaining'])
-            tic;
-        end
-    end
-    
-end
+    % Posterior calculations
+    post_mean_num = pinv_cov .* pmu + repmat(sigmaS,Nd,1).^-2 .* repmat(beta_samples,Nd,1) .* (dats - repmat(alpha_samples,Nd,1));
+    post_mean_den = pinv_cov + repmat(beta_samples,Nd,1).^2 .* repmat(sigmaS,Nd,1).^-2;
+    post_mean = post_mean_num ./ post_mean_den;
+    post_sig = sqrt(post_mean_den.^-1);
+    Preds = post_mean + randn(Nd,size(alpha_samples,2)).*post_sig;
 
 %% get the three pers:
-% recall that there are Nsamps predictions for each of the N_Locs_g
-% analog locations. 
-pers3=round([.05, .50, .95]*Nsamps*N_Locs_g);
+Output_Struct.Preds = prctile(sort(Preds,2),[5 50 95],2);
 
-%stack the predictions across the analog locations to enable sorting across them: 
-preds_T_stack=reshape(preds_T, Nd, Nsamps*N_Locs_g);
-
-%sort
-preds_T_stack_S=sort(preds_T_stack,2);
-
-%get the three percentiles:
-Output_Struct.Preds=preds_T_stack_S(:,pers3);
-
-%% if necessary, save the ensemble as well:
+%% if requested, save the ensemble as well:
 if ens_sel==1
-    Output_Struct.PredsEns=preds_T;
+    Output_Struct.PredsEns=Preds;
 end
-
-
-
-

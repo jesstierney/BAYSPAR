@@ -1,5 +1,5 @@
 %% Example using the analog prediction
-clear all; close all; clc
+clear; close all; clc
 
 %%%%%%%%%
 %%%%%%%%%
@@ -16,9 +16,6 @@ wilsonlake.paleolat=wilsonlake.lat;
 wilsonlake.paleolon=wilsonlake.lon;
 %Set to the standard name to play nice with the code below.
 tex_data=wilsonlake; clear wilsonlake
-%%%%%%%%%
-%%%%%%%%%
-
 
 %% Set the inputs for the prediction code:
 %Data
@@ -30,37 +27,20 @@ prior_std=20;
 %search tolerance
 search_tol=std(dats)*2; %set search tolerance to data timeseries std*2
 %optional inputs:
-Nsamps=10;
-ens_sel=0; %do not save ensemble
+%Nsamps=10;
+%ens_sel=0; %do not save ensemble
 
 
 %select which model to use:
 
 %SST
-runname=char('SST');
-
-%subT
-%runname=char('subT');
-
-
-% NOTE: if there are a large number of spatial analogs, then the code can
-% be slow as it predicts Nsamps times for each spatial analog. Suggest an
-% initial run with Nsamps set low (even to 10), to get a sense of the
-% number of analogs, and then a subsequent run with a reasonable value of
-% Nsamps so as to end up with 10000 or so total predictions. 
+runname='subT';
 
 % Run the prediction:
-Output_Struct=bayspar_tex_analog(dats, prior_mean, prior_std, search_tol, runname, Nsamps, ens_sel);
+Output_Struct=bayspar_tex_analog(dats, prior_mean, prior_std, search_tol, runname,1000,1);
 
 %in this case, there are 
 N_analogs=length(Output_Struct.AnLocs(:,1))
-%% analog locations. Now increase Nsamps accordingly and also save the ensemble:
-
-%optional inputs:
-Nsamps=2000;
-ens_sel=1; %save ensemble
-Output_Struct=bayspar_tex_analog(dats, prior_mean, prior_std, search_tol, runname, Nsamps, ens_sel);
-
 
 %% plot the paleo location of the data time series and the analog locations 
 
@@ -84,8 +64,6 @@ for kk=1:1:length(Output_Struct.AnLocs(:,2))
      geoshow(lat_vec, lon_vec, 'linewidth', 1, 'color', 'k'), hold on 
 end
 title('Red: Data paleo location. Black cross: modern TEX86 locations.  Black boxes: analog locations.')
-
-
 %% Now make a plot of the predictions:
 %need a depth scale:
 depth=tex_data.depth;
@@ -102,18 +80,3 @@ axis tight
 ylabel('Temperature in C')
 xlabel('Depth')
 legend('90% Uncertainty', 'Mean', 'Prior Mean')
-
-%% and if available, plot Ns of the ensemble members for each analog
-% location
-Ns=3;
-
-if ens_sel==1
-    inders=floor(linspace(1, Nsamps, Ns));
-    for jj=1:1:length(Output_Struct.AnLocs(:,1))
-        for kk=1:1:length(inders)
-            plot(depth, Output_Struct.PredsEns(:,jj,inders(kk)), 'b-'), hold on
-        end
-    end
-end
-
-

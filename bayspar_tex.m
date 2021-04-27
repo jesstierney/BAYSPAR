@@ -7,7 +7,7 @@ function Output_Struct = bayspar_tex(dats, lon, lat, prior_std, runname, varargi
 % lon       - longitude, from -180 to 180
 % lat       - latitude, from -90 to 90
 % prior_std - prior standard deviation.
-% runname   - specify which model to use. Enter either 'SST' or 'subT'
+% runname   - specify which model to use. Enter either SST or subT
 %
 % varargin  - used to set the number of posterior draws of parameters to
 % mix across, and whether to save the 5th/50th/95th percentiles of the
@@ -53,28 +53,21 @@ if ng==7
 elseif ng==6
     Nsamps=varargin{1};
     ens_sel=0;
-elseif ng==5;
+elseif ng==5
     Nsamps=1000;
     ens_sel=0;
 end
 
 %% Load data files needed in the analysis:
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/alpha_samples_comp'])
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/beta_samples_comp'])
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/tau2_samples'])
-load(['ModelOutput/', 'Output_SpatAg_', runname, '/Locs_Comp'])
-% 
+load(['ModelOutput/', 'Output_SpatAg_', runname, '/params_standard'],...
+        'alpha_samples_comp','beta_samples_comp','tau2_samples','Locs_Comp');
 
-% % and the SST data and locs: THIS IS BRITTLE
-if length(strfind(runname, char('SST')))==1
-    load ModelOutput/locs_woa_1degree_asvec_SST
-    load ModelOutput/st_woa_1degree_asvec_SST
-elseif length(strfind(runname, char('subT')))==1
-    load ModelOutput/locs_woa_1degree_asvec_subT
-    load ModelOutput/st_woa_1degree_asvec_subT
+% and the SST data and locs
+if runname=="SST"
+    load('ModelOutput/obsSST','locs_st_obs','st_obs_ave_vec');
+elseif runname=="subT"
+    load('ModelOutput/obssubT','locs_st_obs','st_obs_ave_vec');
 end
-%
-
 
 % grid spacing is hard-coded here:
 grid_half_space=10;
@@ -87,12 +80,7 @@ max_dist=500;
 
 %% make sure input is column:
 dats=dats(:);
-%and that Nsamps is less than 15000:
 
-% trim tau^2 as it may not have had burnin removed:
-Ntk=length(alpha_samples_comp(1,:));
-tau2_samples=tau2_samples(end-Ntk+1:1:end);
-Nsamps=min([Nsamps, length(tau2_samples)]);
 %thin the samples to the right number (so as to use the full span of the
 %ensemble even if few samples are used.)
 ind_s=round(linspace(1, length(tau2_samples), Nsamps));
@@ -100,11 +88,8 @@ alpha_samples_comp=alpha_samples_comp(:, ind_s);
 beta_samples_comp=beta_samples_comp(:, ind_s);
 tau2_samples=tau2_samples(ind_s);
 
-
 %get the number of obs:
 Nd=length(dats);
-% get the three pers:
-pers3=round([.05, .50, .95]*Nsamps);
 
 % build output structure. 
 Output_Struct.Preds=NaN(Nd, 3);
@@ -132,13 +117,13 @@ num_below_dist=find(vals_dist_prior<max_dist, 1, 'last' );
    
 %if this is larger than the min number, use it to select them:
 if num_below_dist>min_num
-  prior_mean_val=mean(st_obs_ave_vec(inds_dist_prior(1:1:num_below_dist)));
+  prior_mean=mean(st_obs_ave_vec(inds_dist_prior(1:1:num_below_dist)));
 %otherwise use the smalles min_num:
 else
-   prior_mean_val=mean(st_obs_ave_vec(inds_dist_prior(1:1:min_num)));
+   prior_mean=mean(st_obs_ave_vec(inds_dist_prior(1:1:min_num)));
 end
 % fill in the prior mean value in the output:
-Output_Struct.PriorMean=prior_mean_val;
+Output_Struct.PriorMean=prior_mean;
 
 %% figure out the alpha and beta series to draw from.       
 
@@ -148,47 +133,29 @@ Output_Struct.PriorMean=prior_mean_val;
 inder_g=find(abs(Locs_Comp(:,1)-lon)<=grid_half_space & abs(Locs_Comp(:,2)-lat)<=grid_half_space);
 
 % Extract the alpha, beta series:
-alpha_samples_comp=alpha_samples_comp(inder_g, :)';
-beta_samples_comp=beta_samples_comp(inder_g, :)';
+alpha_samples_comp=alpha_samples_comp(inder_g, :);
+beta_samples_comp=beta_samples_comp(inder_g, :);
 
 % Fill in the outputs:
 Output_Struct.GridLoc=Locs_Comp(inder_g, :);
 
-
-%% set the priors in vector form:
+%% solve
+% Prior mean and inverse covariance matrix
+    pmu = repmat(ones(Nd, 1) * prior_mean,1,Nsamps);
+    pinv_cov = repmat(prior_std,Nd,Nsamps).^-2;
+    sigmaS = sqrt(tau2_samples);
     
-Prior_Pars.mu=ones(Nd,1)*prior_mean_val;
-Prior_Pars.inv_cov=eye(Nd)*prior_std^(-2); %recall that input is std not var. 
-   
+    % Posterior calculations
+    post_mean_num = pinv_cov .* pmu + repmat(sigmaS,Nd,1).^-2 .* repmat(beta_samples_comp,Nd,1) .* (dats - repmat(alpha_samples_comp,Nd,1));
+    post_mean_den = pinv_cov + repmat(beta_samples_comp,Nd,1).^2 .* repmat(sigmaS,Nd,1).^-2;
+    post_mean = post_mean_num ./ post_mean_den;
+    post_sig = sqrt(post_mean_den.^-1);
+    Preds = post_mean + randn(Nd,Nsamps).*post_sig;
 
-%% set the blank array to fill
-Preds=NaN(Nd, Nsamps);
+%% take the percentiles
+Output_Struct.Preds = prctile(sort(Preds,2),[5 50 95],2);
 
-tic;
-%cycle through to get the predictions in each case:
-for JJ=1:1:Nsamps
-    %NoNorth
-    Preds(:,JJ)= Target_All_Predict(alpha_samples_comp(JJ), beta_samples_comp(JJ), tau2_samples(JJ), dats, Prior_Pars);
-
-    if floor(JJ/1000)-JJ/1000==0
-        tt=toc;
-        display(['Finished iteration ', num2str(JJ), ' of ', num2str(Nsamps)])
-        trem=round((Nsamps-JJ)*tt/1000);
-        display(['Approximately ', num2str(trem), ' seconds remaining'])
-        tic;
-    end
-end
-
-%% sort, take the percentiles
-
-Preds_S=sort(Preds, 2);
-Output_Struct.Preds=Preds_S(:, pers3);
-
-%% if necessary, save the ensemble as well. 
+%% if asked save the ensemble as well. 
 if ens_sel==1
     Output_Struct.PredsEns=Preds;
 end
-
-
-
-
