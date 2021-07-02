@@ -52,7 +52,7 @@ end
 grid_half_space=10;
 %% Figure out the alpha and beta series to draw from.       
 if strcmp(type,"standard")
-    Nloc = length(t);
+    Nloc = length(lon);
     inder_g = NaN(Nloc,1);
     for i=1:Nloc
     inder_g(i)=find(abs(Locs_Comp(:,1)-lon(i))<=grid_half_space & abs(Locs_Comp(:,2)-lat(i))<=grid_half_space);
@@ -71,6 +71,10 @@ else %analog option
     end
     %identify mean values within the tolerance
     inder_g = spatialMean >= (mean(t)-stol) & spatialMean <= (mean(t)+stol);
+    if sum(inder_g)==0
+        error('Your search tolerance is too narrow')
+    else
+    end
     alpha_samples=alpha_samples(inder_g, :);
     beta_samples=beta_samples(inder_g, :);
     %tile tau2 to match
@@ -83,7 +87,7 @@ end
 
 %% Predict TEX86 values
 tex86 = normrnd(t .* beta_samples + alpha_samples,repmat(sqrt(tau2_samples),length(t),1));
-%downsample to 2000 iterations for ease
+%downsample to 1000 iterations for ease
 iters = length(alpha_samples);
 randind = randsample(iters,1000);
 tex86 = tex86(:,randind);

@@ -97,6 +97,10 @@ for i=1:N_bg
 end
 %identify mean values within the tolerance
 inder_g = spatialMean >= (mean(dats)-search_tol) & spatialMean <= (mean(dats)+search_tol);
+if sum(inder_g)==0
+    error('Your search tolerance is too narrow')
+else
+end
 alpha_samples=alpha_samples(inder_g, :);
 beta_samples=beta_samples(inder_g, :);
 %tile tau2 to match
